@@ -6,16 +6,22 @@ output: html_document
 ---
 # Data Management
 ```{r}
+library(tidyr)
+library(dplyr)
 #Load data
 DF1 <- read.csv("HUDK405019-clustering.csv", header = TRUE)
 
 #Convert the index numbers of the data fram into the student names.
-  
+DF1<-unite(DF1,Student_Name, First.Name, Last.Name, sep = " ")
+rownames(DF1)<-DF1$Student_Name
+DF1<- DF1[-1]
 #Wrangle data using dplyr to include only the numerical values.
-
+DF2<- select(DF1,1:11)
+DF2 <- DF2 %>% mutate_all(funs(gsub("[a-zA-Z]", "", .)))%>% mutate_all(funs(as.numeric(.)))
 #Scale the data so that no variable has undue influence
-
-DF2 <- scale(DF2)
+DF2 <- as.data.frame(scale(DF2))
+#Replace missing values with average score EG - zero
+DF2 <- DF2 %>% mutate_all(funs(ifelse(is.na(.) == TRUE, 0, .)))
  
 ```
 
@@ -27,10 +33,29 @@ DF2 <- scale(DF2)
 #install.packages("rgdal")
 #library(ggmap)
 #library(tmaptools)
-
+install.packages("ggmap")
+install.packages("rgdal")
+install.packages("tmaptools")
+library(ggmap)
+library(tmaptools)
 #Request lattitude and longitude from Google Maps API
 #DF2 <- geocode(as.character(DF2$Q1_1), output = "latlon", source = "dsk")
+
+DF3 <- select(DF1, 12:13)
+#Change names for convenience
+names(DF3) <- c("lattitude", "longitude")
+DF3 <- DF3 %>% mutate_all(funs(gsub("[a-zA-Z]", "", .)))
+DF3 <- DF3 %>% mutate_all(funs(sub("[?]", "", .)))
+#Remove anything after the first non-numeric character in lattitude
+DF3$lattitude <- sub(",.*$","", DF3$lattitude) 
+DF3$lattitude <- sub("°.*$","", DF3$lattitude)
+#Remove anything before the first non-numeric character in longitude
+DF3$longitude <- gsub(".*,","",DF3$longitude)
+DF3$longitude <- sub("°.*$","", DF3$longitude)
+#Convert all variables to numeric
+DF3 <- DF3 %>% mutate_all(funs(as.numeric(.)))
 ```
+
 
 Now we will run the K-means clustering algorithm we talked about in class. 
 1) The algorithm starts by randomly choosing some starting values 
@@ -45,18 +70,17 @@ Notice that in this case we have 10 variables and in class we only had 2. It is 
 Also, we need to choose the number of clusters we think are in the data. We will start with 4.
 
 ```{r}
-
-fit <- kmeans(DF2, 1) 
+fit <- kmeans(DF2, 3) 
 
 #We have created an object called "fit" that contains all the details of our clustering including which observations belong to each cluster.
 
 #We can access the list of clusters by typing "fit$cluster", the top row corresponds to the original order the rows were in. Notice we have deleted some rows.
 
-fit$cluster yay
+fit$cluster 
 
 #We can also attach these clusters to te original dataframe by using the "data.frame" command to create a new data frame called K4.
 
-DF3 <- data.frame(DF2, fit$cluster)
+DF4 <- data.frame(DF2, DF3, fit$cluster)
 
 #Have a look at the DF3 dataframe. Lets change the names of the variables to make it more convenient with the names() command.
 
@@ -67,11 +91,15 @@ names(DF3) <- c("1", "2", "3", "4", "5", "cluster") #c() stands for concatonate 
 # Visualize your clusters in ggplot
 ```{r}
 #Create a scatterplot that plots location of each student and colors the points according to their cluster 
+library(ggplot2)
+ggplot(DF4, aes(longitude, lattitude, color = as.factor(fit.cluster))) + geom_point(size = 3)
 ```
 
 # Can you group students from the classes data set in Assignment 2 using K-modes?
 
 ```{r}
+install.packages("klaR")
+library(klaR)
 
 ```
 
